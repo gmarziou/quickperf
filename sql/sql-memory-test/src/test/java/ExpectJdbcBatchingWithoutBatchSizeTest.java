@@ -16,6 +16,7 @@ import org.quickperf.junit4.QuickPerfJUnitRunner;
 import org.quickperf.jvm.allocation.AllocationUnit;
 import org.quickperf.jvm.annotations.HeapSize;
 import org.quickperf.sql.Book;
+import org.quickperf.sql.annotation.DisplaySqlOfTestMethodBody;
 import org.quickperf.sql.annotation.ExpectJdbcBatching;
 import org.quickperf.sql.config.MemoryDatabaseHibernateDialect;
 
@@ -156,12 +157,18 @@ public class ExpectJdbcBatchingWithoutBatchSizeTest {
 
         @Test
         @ExpectJdbcBatching()
+        @DisplaySqlOfTestMethodBody
         public void execute_one_insert_in_batch_mode() {
 
             executeInATransaction(entityManager -> {
                 Book newBook = new Book();
                 newBook.setTitle("new book");
                 entityManager.persist(newBook);
+
+                Book newBook2 = new Book();
+                newBook2.setTitle("new book");
+                entityManager.persist(newBook2);
+
             });
 
         }
@@ -172,6 +179,43 @@ public class ExpectJdbcBatchingWithoutBatchSizeTest {
     should_pass_with_one_insert_and_batch_mode() {
 
         Class<?> testClass = AClassHavingAMethodAnnotatedWithExpectJdbcBatchingAndExecutingOneInsertBatched.class;
+
+        PrintableResult testResult = testResult(testClass);
+
+        assertThat(testResult.failureCount()).isZero();
+
+    }
+
+    @RunWith(QuickPerfJUnitRunner.class)
+    public static class AClassHavingAMethodAnnotatedWithExpectJdbcBatchingAndExecutingOneUpdateBatched extends SqlTestBase {
+
+        @Override
+        protected Properties getHibernateProperties() {
+            String hibernateDialect = MemoryDatabaseHibernateDialect.INSTANCE.getHibernateDialect();
+            return   anHibernateConfig()
+                    .withBatchSize(30)
+                    .build(hibernateDialect);
+        }
+
+        @Test
+        @ExpectJdbcBatching()
+        @DisplaySqlOfTestMethodBody
+        public void execute_one_update_in_batch_mode() {
+
+            executeInATransaction(entityManager -> {
+                String updateQueryAsString = "UPDATE Book SET title='Newer book'";
+                Query query = entityManager.createNativeQuery(updateQueryAsString);
+                query.executeUpdate();
+            });
+
+        }
+
+    }
+
+    @Test public void
+    should_pass_with_one_update_and_batch_mode() {
+
+        Class<?> testClass = AClassHavingAMethodAnnotatedWithExpectJdbcBatchingAndExecutingOneUpdateBatched.class;
 
         PrintableResult testResult = testResult(testClass);
 
